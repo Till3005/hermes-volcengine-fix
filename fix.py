@@ -113,14 +113,50 @@ def diagnose(cfg: dict) -> dict:
                 string_models.append(str(m["id"]))
     elif isinstance(models, dict):
         string_models = [str(k) for k in models.keys() if k]
+    default_model = pcfg.get("model") or pcfg.get("default_model") or ""
+    # Detect auxiliary tasks still pointing at 'auto' — these blow up at
+    # runtime because vision auto resolves main_provider='custom' (the
+    # runtime override for named custom providers) and then loses the
+    # named-provider base_url, falling through to openrouter/nous which
+    # aren't configured.  See README for the full chain.
+    aux_tasks_auto = _diagnose_auxiliary_tasks(cfg)
     return {
         "state": "found",
         "slug": slug,
         "discover_models": discover,
         "dict_style_models": dict_style,
         "models_list": string_models,
-        "default_model": pcfg.get("model") or pcfg.get("default_model") or "",
+        "default_model": default_model,
+        "aux_tasks_auto": aux_tasks_auto,
     }
+
+
+# Auxiliary tasks that default to 'auto' and routinely break for named-custom
+# main providers.  Pinning each one to the main provider/model is the
+# documented workaround.  Order matters for the user-visible report.
+AUX_TASKS_TO_PIN = (
+    "vision",
+    "web_extract",
+    "compression",
+    "title_generation",
+    "tts_audio_tags",
+)
+
+
+def _diagnose_auxiliary_tasks(cfg: dict) -> list[str]:
+    """Return the auxiliary task names that are still on 'auto'."""
+    aux = cfg.get("auxiliary") or {}
+    if not isinstance(aux, dict):
+        return []
+    needs_fix: list[str] = []
+    for task in AUX_TASKS_TO_PIN:
+        tcfg = aux.get(task)
+        if not isinstance(tcfg, dict):
+            continue
+        prov = str(tcfg.get("provider") or "").strip().lower()
+        if prov in {"", "auto"}:
+            needs_fix.append(task)
+    return needs_fix
 
 
 def _provider_block_span(text: str, slug: str) -> tuple[int, int] | None:
@@ -162,6 +198,90 @@ def _provider_block_span(text: str, slug: str) -> tuple[int, int] | None:
             end = j
             break
     return (start, end)
+
+
+def _auxiliary_task_span(text: str, task: str) -> tuple[int, int] | None:
+    """Find the [start, end) line range of an ``auxiliary.<task>`` block.
+
+    auxiliary blocks live at 2-space indent under ``auxiliary:`` (top-level).
+    The task block ends at the next 2-space-indented sibling or any indent
+    <= 2 line.
+    """
+    lines = text.splitlines(keepends=True)
+    aux_idx = None
+    for i, ln in enumerate(lines):
+        if ln.rstrip() == "auxiliary:" or ln.lstrip().startswith("auxiliary:"):
+            aux_idx = i
+            break
+    if aux_idx is None:
+        return None
+    target = f"  {task}:"
+    start = None
+    for i in range(aux_idx + 1, len(lines)):
+        ln = lines[i]
+        if not ln.strip():
+            continue
+        stripped = ln.lstrip(" ")
+        indent = len(ln) - len(stripped)
+        # Once we leave the auxiliary: section, stop.
+        if indent <= 0 and stripped and not stripped.startswith("#"):
+            return None
+        if ln.rstrip("\n") == target or ln.startswith(target + " ") or ln.rstrip() == target:
+            start = i
+            break
+    if start is None:
+        return None
+    end = len(lines)
+    for j in range(start + 1, len(lines)):
+        ln = lines[j]
+        if not ln.strip():
+            continue
+        stripped = ln.lstrip(" ")
+        indent = len(ln) - len(stripped)
+        if indent <= 2:
+            end = j
+            break
+    return (start, end)
+
+
+def rewrite_auxiliary_task(text: str, task: str, provider: str, model: str) -> str:
+    """Pin ``auxiliary.<task>.provider`` and ``.model`` to the given values.
+
+    - Replaces existing 4-space ``provider:`` and ``model:`` lines if present.
+    - Inserts them right after the task header if not.
+    - Leaves every other field (timeout, base_url, api_key, extra_body, …) alone.
+
+    Returns the text unchanged when the auxiliary or task block isn't present
+    (so we don't fabricate sections that the user removed on purpose).
+    """
+    span = _auxiliary_task_span(text, task)
+    if span is None:
+        return text
+    lines = text.splitlines(keepends=True)
+    start, end = span
+    block = lines[start:end]
+    new_block: list[str] = [block[0]]  # keep "  <task>:" header
+    seen_provider = False
+    seen_model = False
+    for ln in block[1:]:
+        stripped = ln.lstrip(" ")
+        indent = len(ln) - len(stripped)
+        if indent == 4 and stripped.startswith("provider:"):
+            new_block.append(f"    provider: {provider}\n")
+            seen_provider = True
+            continue
+        if indent == 4 and stripped.startswith("model:"):
+            new_block.append(f"    model: {model}\n")
+            seen_model = True
+            continue
+        new_block.append(ln)
+    if not seen_provider:
+        new_block.insert(1, f"    provider: {provider}\n")
+    if not seen_model:
+        # insert right after provider (or right after header if no provider)
+        insert_at = 2 if seen_provider or not seen_provider else 1
+        new_block.insert(insert_at, f"    model: {model}\n")
+    return "".join(lines[:start]) + "".join(new_block) + "".join(lines[end:])
 
 
 def rewrite_provider_block(text: str, slug: str, models: list[str]) -> str:
@@ -405,10 +525,12 @@ def main() -> int:
             models.insert(0, dm)
 
     # already fully fixed?
+    aux_tasks_auto = diag.get("aux_tasks_auto") or []
     already_ok = (
         diag["discover_models"] is False
         and not diag["dict_style_models"]
         and set(diag["models_list"]) >= set(DEFAULT_MODELS)
+        and not aux_tasks_auto
     )
     if already_ok:
         ok("配置看起来已经修过了 — 无需更改。")
@@ -422,15 +544,24 @@ def main() -> int:
         print(f"  • 添加 {c('discover_models: false', BOLD)}（关闭 live API 覆盖）")
     if diag["dict_style_models"]:
         print(f"  • 把 dict 格式的 models 转成纯字符串列表（避免 inventory 崩）")
-    print(f"  • 重写 models 列表，含 {len(models)} 项：")
-    preview = models[:6]
-    print(f"    {', '.join(preview)}{', …' if len(models) > 6 else ''}")
+    if set(diag["models_list"]) < set(DEFAULT_MODELS):
+        print(f"  • 重写 models 列表，含 {len(models)} 项：")
+        preview = models[:6]
+        print(f"    {', '.join(preview)}{', …' if len(models) > 6 else ''}")
+    if aux_tasks_auto:
+        pin_model = diag["default_model"] or (models[0] if models else "glm-5.2")
+        print(f"  • 把 {len(aux_tasks_auto)} 个 auxiliary 任务从 {c('auto', YELLOW)} 改为 "
+              f"{c(slug, BOLD)} + {c(pin_model, BOLD)}")
+        print(f"    （修复 \"No LLM provider configured for task=vision\" 的报错）")
+        print(f"    任务：{', '.join(aux_tasks_auto)}")
     print()
 
     if args.dry_run:
-        info("--dry-run 模式 — 不写文件。完整新 models 列表：")
-        for m in models:
-            print(f"    - {m}")
+        info("--dry-run 模式 — 不写文件。")
+        if set(diag["models_list"]) < set(DEFAULT_MODELS):
+            info("完整新 models 列表：")
+            for m in models:
+                print(f"    - {m}")
         return 0
 
     if not args.yes:
@@ -440,6 +571,14 @@ def main() -> int:
 
     text = cfg_path.read_text(encoding="utf-8")
     new_text = rewrite_provider_block(text, slug, models)
+    # Pin auxiliary tasks to the main provider/model so vision/web_extract/
+    # compression/etc don't fall through the broken auto chain when the main
+    # provider is a named-custom one.
+    if aux_tasks_auto:
+        pin_provider = slug
+        pin_model = diag["default_model"] or (models[0] if models else "glm-5.2")
+        for task in aux_tasks_auto:
+            new_text = rewrite_auxiliary_task(new_text, task, pin_provider, pin_model)
 
     if new_text == text:
         warn("文本无变化（可能是匹配脚本错过 — 请检查 provider 缩进是否为 2 空格）")
@@ -457,6 +596,7 @@ def main() -> int:
         assert new_diag["state"] == "found"
         assert new_diag["discover_models"] is False
         assert not new_diag["dict_style_models"]
+        assert not new_diag.get("aux_tasks_auto")
         assert "glm-5.2" in new_diag["models_list"] or any(
             m in new_diag["models_list"] for m in models
         )

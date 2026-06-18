@@ -85,6 +85,80 @@ providers:
     - ark-code-latest
 """
 
+AUTO_AUXILIARY = """\
+model:
+  provider: volcengine-coding-plan
+  default: glm-5.2
+providers:
+  volcengine-coding-plan:
+    base_url: https://ark.cn-beijing.volces.com/api/coding/v3
+    discover_models: false
+    api_key: ark-FAKE
+    model: glm-5.2
+    models:
+    - glm-5.2
+    - glm-5.1
+    - glm-4.7
+    - kimi-k2.6
+    - kimi-k2.5
+    - minimax-m2.7
+    - deepseek-v3.2
+    - doubao-seed-2.0-pro
+    - doubao-seed-2.0-code
+    - doubao-seed-2.0-lite
+    - doubao-seed-code
+    - ark-code-latest
+auxiliary:
+  vision:
+    provider: auto
+    model: ''
+    base_url: ''
+    api_key: ''
+    timeout: 120
+  web_extract:
+    provider: ''
+    model: ''
+    timeout: 60
+  triage_specifier:
+    provider: auto
+    model: ''
+    timeout: 30
+"""
+
+MIXED_AUXILIARY = """\
+model:
+  provider: volcengine-coding-plan
+  default: glm-5.2
+providers:
+  volcengine-coding-plan:
+    base_url: https://ark.cn-beijing.volces.com/api/coding/v3
+    discover_models: false
+    api_key: ark-FAKE
+    model: glm-5.2
+    models:
+    - glm-5.2
+    - glm-5.1
+    - glm-4.7
+    - kimi-k2.6
+    - kimi-k2.5
+    - minimax-m2.7
+    - deepseek-v3.2
+    - doubao-seed-2.0-pro
+    - doubao-seed-2.0-code
+    - doubao-seed-2.0-lite
+    - doubao-seed-code
+    - ark-code-latest
+auxiliary:
+  vision:
+    provider: volcengine-coding-plan
+    model: glm-5.2
+    timeout: 120
+  web_extract:
+    provider: openai
+    model: gpt-4o-mini
+    timeout: 60
+"""
+
 NO_VOLCENGINE = """\
 model:
   provider: openai
@@ -154,6 +228,50 @@ def test_idempotent():
         assert r.returncode == 0
         assert "已经修过" in r.stdout or "已修过" in r.stdout, r.stdout
         assert cfg.read_text() == before, "file changed despite already-fixed"
+        assert not list(cfg.parent.glob("config.yaml.bak-*")), "spurious backup"
+
+
+def test_auto_auxiliary_tasks_are_pinned_to_volcengine():
+    """Known auto auxiliary tasks are pinned to the volcengine provider/model."""
+    with tempfile.TemporaryDirectory() as td:
+        cfg = Path(td) / "config.yaml"
+        write(cfg, AUTO_AUXILIARY)
+        r = run_fix("--config", str(cfg), "--no-restart", "--yes")
+        assert r.returncode == 0, r.stderr
+        data = load_yaml(cfg)
+        aux = data["auxiliary"]
+        assert aux["vision"]["provider"] == "volcengine-coding-plan"
+        assert aux["vision"]["model"] == "glm-5.2"
+        assert aux["vision"]["timeout"] == 120
+        assert aux["web_extract"]["provider"] == "volcengine-coding-plan"
+        assert aux["web_extract"]["model"] == "glm-5.2"
+        # Other auto tasks are outside the workaround's allowlist and remain unchanged.
+        assert aux["triage_specifier"]["provider"] == "auto"
+
+
+def test_auxiliary_only_fix_preserves_provider_text():
+    """When only auxiliary tasks need fixes, the provider block is left byte-for-byte intact."""
+    with tempfile.TemporaryDirectory() as td:
+        cfg = Path(td) / "config.yaml"
+        before = AUTO_AUXILIARY
+        write(cfg, before)
+        r = run_fix("--config", str(cfg), "--no-restart", "--yes")
+        assert r.returncode == 0, r.stderr
+        after = cfg.read_text()
+        before_provider = before.split("auxiliary:\n", 1)[0]
+        after_provider = after.split("auxiliary:\n", 1)[0]
+        assert after_provider == before_provider
+
+
+def test_pinned_auxiliary_tasks_are_idempotent():
+    """Explicit auxiliary provider/model choices should not be rewritten."""
+    with tempfile.TemporaryDirectory() as td:
+        cfg = Path(td) / "config.yaml"
+        write(cfg, MIXED_AUXILIARY)
+        before = cfg.read_text()
+        r = run_fix("--config", str(cfg), "--no-restart", "--yes")
+        assert r.returncode == 0
+        assert cfg.read_text() == before, "explicit auxiliary config was rewritten"
         assert not list(cfg.parent.glob("config.yaml.bak-*")), "spurious backup"
 
 

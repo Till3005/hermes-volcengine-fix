@@ -43,8 +43,12 @@ python3 fix.py --rollback # 从最近备份还原
    - 添加 `discover_models: false` —— 阻止 Hermes 调用 live `/v1/models` 覆盖你写的列表
    - 把 dict 格式的 `models:` 转成纯字符串列表（dict 格式会让 Hermes inventory 崩）
    - 写入一份包含 glm-5.2、kimi-k2.6、deepseek-v3.2 等 12 个常用别名的列表
-4. **验证** 改完之后能正常解析、关键字段已生效；失败自动回滚
-5. **重启** 正在运行的 Hermes Desktop（macOS）
+4. **修复** 常见 auxiliary 任务：
+   - 把已有的 `vision`、`web_extract`、`compression`、`title_generation`、`tts_audio_tags`
+     从 `provider: auto` 改成你的火山 provider + 默认模型
+   - 避免截图/图片等任务报 `No LLM provider configured for task=vision`
+5. **验证** 改完之后能正常解析、关键字段已生效；失败自动回滚
+6. **重启** 正在运行的 Hermes Desktop（macOS）
 
 其他 provider、注释、缩进、以及 config 里所有别的字段全部保持原样。
 
@@ -60,6 +64,12 @@ custom provider 默认会调一次 live `/v1/models`，**用返回结果覆盖**
 
 修复方法是给 provider 加上 `discover_models: false`，告诉 Hermes 别去 probe，
 直接用 config 里手写的列表。
+
+还有一个相关坑：当主模型是命名的 custom provider（比如 `volcengine-coding-plan`）时，
+部分 auxiliary 任务保持 `provider: auto` 会在运行时丢掉这个 provider 的 `base_url`，
+转而 fallback 到未配置的钱包/provider，于是截图或图片任务会报
+`No LLM provider configured for task=vision`。这个工具会把已有的常见 auxiliary
+任务固定到同一个火山 provider 和默认模型。
 
 ## 自定义模型列表
 
