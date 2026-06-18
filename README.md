@@ -1,10 +1,10 @@
-# fix-volcengine-glm
+# fix-volcengine-models
 
 [![tests](https://github.com/Till3005/hermes-volcengine-fix/actions/workflows/tests.yml/badge.svg)](https://github.com/Till3005/hermes-volcengine-fix/actions/workflows/tests.yml)
 
 一键修复 **Hermes Desktop 看不到火山引擎 coding plan 模型**（glm-5.2、kimi-k2.6 等）的问题。
 
-## 是不是说的就是你
+## 说的就是你
 
 你在用 [Hermes Agent](https://hermes-agent.nousresearch.com) + 火山引擎 coding plan
 （base_url 是 `https://ark.cn-beijing.volces.com/api/coding/v3`），CLI 跑得好好的、
