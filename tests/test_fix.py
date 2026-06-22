@@ -77,12 +77,37 @@ providers:
     - kimi-k2.6
     - kimi-k2.5
     - minimax-m2.7
-    - deepseek-v3.2
-    - doubao-seed-2.0-pro
-    - doubao-seed-2.0-code
-    - doubao-seed-2.0-lite
-    - doubao-seed-code
     - ark-code-latest
+    - glm-4-5-air-20250728
+    - glm-4-7-251222
+    - qwen2-5-72b-20240919
+    - qwen3-0-6b-20250429
+    - qwen3-8b-20250429
+    - qwen3-14b-20250429
+    - qwen3-32b-20250429
+    - doubao-1-5-lite-32k-250115
+    - doubao-1-5-pro-32k-250115
+    - doubao-1-5-pro-32k-character-250715
+    - doubao-1-5-vision-pro-32k-250115
+    - doubao-seed-1-6-250615
+    - doubao-seed-1-6-251015
+    - doubao-seed-1-6-flash-250615
+    - doubao-seed-1-6-flash-250828
+    - doubao-seed-1-6-vision-250815
+    - doubao-seed-code-preview-251028
+    - doubao-seed-1-8-251228
+    - doubao-seed-2-0-lite-260215
+    - doubao-seed-2-0-lite-260428
+    - doubao-seed-2-0-mini-260215
+    - doubao-seed-2-0-mini-260428
+    - doubao-seed-2-0-pro-260215
+    - doubao-seed-2-0-code-preview-260215
+    - deepseek-v3-2-251201
+    - deepseek-v4-pro-260425
+    - deepseek-v4-flash-260425
+    - doubao-seed-translation-250915
+    - doubao-seed-character-251128
+    - doubao-smart-router-250928
 """
 
 AUTO_AUXILIARY = """\
@@ -102,12 +127,37 @@ providers:
     - kimi-k2.6
     - kimi-k2.5
     - minimax-m2.7
-    - deepseek-v3.2
-    - doubao-seed-2.0-pro
-    - doubao-seed-2.0-code
-    - doubao-seed-2.0-lite
-    - doubao-seed-code
     - ark-code-latest
+    - glm-4-5-air-20250728
+    - glm-4-7-251222
+    - qwen2-5-72b-20240919
+    - qwen3-0-6b-20250429
+    - qwen3-8b-20250429
+    - qwen3-14b-20250429
+    - qwen3-32b-20250429
+    - doubao-1-5-lite-32k-250115
+    - doubao-1-5-pro-32k-250115
+    - doubao-1-5-pro-32k-character-250715
+    - doubao-1-5-vision-pro-32k-250115
+    - doubao-seed-1-6-250615
+    - doubao-seed-1-6-251015
+    - doubao-seed-1-6-flash-250615
+    - doubao-seed-1-6-flash-250828
+    - doubao-seed-1-6-vision-250815
+    - doubao-seed-code-preview-251028
+    - doubao-seed-1-8-251228
+    - doubao-seed-2-0-lite-260215
+    - doubao-seed-2-0-lite-260428
+    - doubao-seed-2-0-mini-260215
+    - doubao-seed-2-0-mini-260428
+    - doubao-seed-2-0-pro-260215
+    - doubao-seed-2-0-code-preview-260215
+    - deepseek-v3-2-251201
+    - deepseek-v4-pro-260425
+    - deepseek-v4-flash-260425
+    - doubao-seed-translation-250915
+    - doubao-seed-character-251128
+    - doubao-smart-router-250928
 auxiliary:
   vision:
     provider: auto
@@ -142,12 +192,37 @@ providers:
     - kimi-k2.6
     - kimi-k2.5
     - minimax-m2.7
-    - deepseek-v3.2
-    - doubao-seed-2.0-pro
-    - doubao-seed-2.0-code
-    - doubao-seed-2.0-lite
-    - doubao-seed-code
     - ark-code-latest
+    - glm-4-5-air-20250728
+    - glm-4-7-251222
+    - qwen2-5-72b-20240919
+    - qwen3-0-6b-20250429
+    - qwen3-8b-20250429
+    - qwen3-14b-20250429
+    - qwen3-32b-20250429
+    - doubao-1-5-lite-32k-250115
+    - doubao-1-5-pro-32k-250115
+    - doubao-1-5-pro-32k-character-250715
+    - doubao-1-5-vision-pro-32k-250115
+    - doubao-seed-1-6-250615
+    - doubao-seed-1-6-251015
+    - doubao-seed-1-6-flash-250615
+    - doubao-seed-1-6-flash-250828
+    - doubao-seed-1-6-vision-250815
+    - doubao-seed-code-preview-251028
+    - doubao-seed-1-8-251228
+    - doubao-seed-2-0-lite-260215
+    - doubao-seed-2-0-lite-260428
+    - doubao-seed-2-0-mini-260215
+    - doubao-seed-2-0-mini-260428
+    - doubao-seed-2-0-pro-260215
+    - doubao-seed-2-0-code-preview-260215
+    - deepseek-v3-2-251201
+    - deepseek-v4-pro-260425
+    - deepseek-v4-flash-260425
+    - doubao-seed-translation-250915
+    - doubao-seed-character-251128
+    - doubao-smart-router-250928
 auxiliary:
   vision:
     provider: volcengine-coding-plan
